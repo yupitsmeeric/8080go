@@ -1,44 +1,30 @@
 package main
 
 import (
-	"bufio"
+	// "bufio"
 	"emulator8080/cpu"
-	"fmt"
-	"github.com/AllenDang/giu"
-	"os"
+	"emulator8080/screen"
+	// "fmt"
+	"log"
+	// "os"
+	_ "embed"
+	// "github.com/AllenDang/giu"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
+//go:embed invaders_compiled
+var memory []byte
+
 func main() {
-	fmt.Println("Hi " + cpu.TestString())
+	ebiten.SetWindowSize(screen.ScreenWidth, screen.ScreenHeight)
+	ebiten.SetWindowTitle("8080 emulator")
 
-	// memory := make([]uint8, 0xffff)
-	var memory [0xffff]uint8
-	// read the ROM into the cpu memory
-	if len(os.Args) > 1 {
-		// then read the file
-		filename := os.Args[1]
-		file, err := os.Open(filename)
-		if err != nil {
-			fmt.Println("error reading file: " + filename)
-			return
-		}
+	//init cpu
 
-		defer file.Close()
-
-		bufr := bufio.NewReader(file)
-		n, err := bufr.Read(memory[:])
-
-		if err != nil {
-			fmt.Println("error reading bytes of: " + filename)
-			return
-		}
-
-		fmt.Printf("Read %d bytes into memory", n)
-	}
 	c := cpu.New(memory)
-
-	wnd := giu.NewMasterWindow("Table sorting", 670, 380, 0)
-	giu.Context.FontAtlas.SetDefaultFont(cpu.DefaultFont, 18)
-	wnd.Run(func() { cpu.DebuggerLoop(c) })
+	g := screen.NewGame(c)
+	if err := ebiten.RunGame(g); err != nil {
+		log.Fatal(err)
+	}
 
 }

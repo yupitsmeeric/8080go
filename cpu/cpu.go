@@ -18,12 +18,12 @@ TODO:
 const memSize = 0xffff
 
 type CPU struct {
-	memory [memSize]uint8
+	memory []uint8
 
 	A, B, C, D, E, H, L uint8
 	PSW                 uint8
 	SP, PC              uint16
-	portMap                map[uint8]uint8
+	portMap             map[uint8]uint8
 
 	// Flags               uint8
 	/*FLAGS*/
@@ -35,7 +35,20 @@ type CPU struct {
 	*/
 }
 
-func New(memory [memSize]uint8) *CPU {
+/* GETTER FUNCTIONS
+For packages reading from the cpu
+*/
+func (c *CPU) GetFlags() []bool {
+	return []bool{c.sign, c.zero, c.auxCarry, c.parity, c.carry}
+}
+
+func (c *CPU) GetRegs() ([]uint8, []uint16){
+	return []uint8{c.A, c.B, c.C, c.D, c.E, c.H, c.L}, []uint16{c.SP, c.PC}
+}
+
+func (c *CPU) GetMemory() []uint8 {return c.memory}
+
+func New(memory []uint8) *CPU {
 	return &CPU{
 		// memory: [memSize]uint8{0},
 		memory: memory,
@@ -56,7 +69,7 @@ func New(memory [memSize]uint8) *CPU {
 		parity:    false,
 		carry:     false,
 		interrupt: false,
-		portMap:      make(map[uint8]uint8),
+		portMap:   make(map[uint8]uint8),
 	}
 }
 
@@ -325,8 +338,8 @@ func (c *CPU) Run() {
 
 }
 
-func (c *CPU) RunCycles(cycles int){
-	for range cycles{
+func (c *CPU) RunCycles(cycles int) {
+	for range cycles {
 		c.Run()
 	}
 }
