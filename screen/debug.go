@@ -16,10 +16,12 @@ func (g *Game) cpuWindow(ctx *debugui.Context) {
 		ctx.SetGridLayout(nil, []int{25, -1})
 		ctx.GridCell(func(bounds image.Rectangle) {
 			// TODO buttons
-			ctx.SetGridLayout([]int{50, 50, 50, -1}, nil)
-			ctx.Button("Run").On(func() {g.c.Run()})
-			ctx.Button("Pause")
-			ctx.Button("Run 1")
+			ctx.SetGridLayout([]int{50, 50, 50, 150, -1}, nil)
+			ctx.Button("Run 1").On(func() {g.c.Run()})
+			ctx.Button("Run").On(func() {g.running = true})
+			ctx.Button("Pause").On(func() {g.running = false})
+			ctx.Text(fmt.Sprintf("Running: %t", g.running))
+			ctx.Text(fmt.Sprintf("Cycle # %v", g.c.Cycles))
 		})
 		ctx.GridCell(func(bounds image.Rectangle) {
 			ctx.SetGridLayout([]int{100, -1}, nil)
@@ -66,7 +68,7 @@ func (g *Game) cpuWindow(ctx *debugui.Context) {
 				// TODO Hex table
 				memory := g.c.GetMemory()
 				pc := g.c.PC
-				memStart := int(pc & 0x1110)
+				memStart := int(pc & 0xfff0)
 				ctx.SetGridLayout([]int{-2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}, nil)
 				ctx.Text("")
 				ctx.Loop(16, func(i int) {ctx.Text(fmt.Sprintf("%X", i))})

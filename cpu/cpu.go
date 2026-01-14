@@ -1,6 +1,10 @@
 package cpu
 
-import "math/bits"
+import (
+	// "fmt"
+	// "log"
+	"math/bits"
+)
 
 /*
 https://web.archive.org/web/20240118230916/http://www.emulator101.com/finishing-the-cpu-emulator.html
@@ -29,24 +33,27 @@ type CPU struct {
 	/*FLAGS*/
 	sign, zero, auxCarry, parity, carry bool
 	interrupt                           bool
+	Cycles                               int
 
 	/*
 		spinCounter uint8 // number of cycles to spin
 	*/
 }
 
-/* GETTER FUNCTIONS
+/*
+	GETTER FUNCTIONS
+
 For packages reading from the cpu
 */
 func (c *CPU) GetFlags() []bool {
 	return []bool{c.sign, c.zero, c.auxCarry, c.parity, c.carry}
 }
 
-func (c *CPU) GetRegs() ([]uint8, []uint16){
+func (c *CPU) GetRegs() ([]uint8, []uint16) {
 	return []uint8{c.A, c.B, c.C, c.D, c.E, c.H, c.L}, []uint16{c.SP, c.PC}
 }
 
-func (c *CPU) GetMemory() []uint8 {return c.memory}
+func (c *CPU) GetMemory() []uint8 { return c.memory }
 
 func New(memory []uint8) *CPU {
 	return &CPU{
@@ -76,8 +83,13 @@ func New(memory []uint8) *CPU {
 /****  MAIN RUN FUNCTION  ****/
 func (c *CPU) Run() {
 	// run 1 cycle
+	c.Cycles += 1
 	var op uint8
 
+	// TODO check if PC is in range
+	// if c.PC >= 0xFFFF{
+	// 	log.Fatalf("ERROR: PC out of range: %X", c.PC)
+	// }
 	op = c.memory[c.PC]
 
 	switch op {

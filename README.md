@@ -6,9 +6,13 @@ NOTES:
 clock speed is 2MHz, delay is 5e-7s = 5e-4ms
 
 TODO:
+- Make subfunctions that automatically set the flags and stuff
+- See:
+    - 1a 77 23 13 05 c2
 - run and compare to a reference implementation to make sure that the stuff works
 reference:
 https://8080.cakers.io/
+https://github.com/superzazu/8080
 
 - ebitengine:
     - make some kind of loop that connects the screen to the cpu cycles - 1 screen cycle runs 1 second worth of cpu cycles
@@ -23,6 +27,7 @@ RESOURCES:
 https://web.archive.org/web/20240118230906/http://www.emulator101.com/full-8080-emulation.html
 https://web.archive.org/web/20240118230900/http://www.emulator101.com/reference/8080-by-opcode.html
 reference 8080:
+https://github.com/superzazu/8080
 https://github.com/hlboehm/i8080-emulator/blob/main/src/emulator/processor.c
 https://tobiasvl.github.io/optable/intel-8080/
 for stuff outside the cpu

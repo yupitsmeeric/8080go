@@ -13,14 +13,16 @@ import (
 )
 
 //go:embed invaders_compiled
-var memory []byte
+var rom []byte
 
 func main() {
 	ebiten.SetWindowSize(screen.ScreenWidth, screen.ScreenHeight)
 	ebiten.SetWindowTitle("8080 emulator")
 
 	//init cpu
-
+	
+	memory := make([]byte, 0xFFFF)
+	copy(memory, rom)
 	c := cpu.New(memory)
 	g := screen.NewGame(c)
 	if err := ebiten.RunGame(g); err != nil {
