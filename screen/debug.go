@@ -17,7 +17,7 @@ func (g *Game) cpuWindow(ctx *debugui.Context) {
 		ctx.GridCell(func(bounds image.Rectangle) {
 			// TODO buttons
 			ctx.SetGridLayout([]int{50, 50, 50, -1}, nil)
-			ctx.Button("Run")
+			ctx.Button("Run").On(func() {g.c.Run()})
 			ctx.Button("Pause")
 			ctx.Button("Run 1")
 		})
