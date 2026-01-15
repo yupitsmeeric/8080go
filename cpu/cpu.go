@@ -86,10 +86,6 @@ func (c *CPU) Run() {
 	c.Cycles += 1
 	var op uint8
 
-	// TODO check if PC is in range
-	// if c.PC >= 0xFFFF{
-	// 	log.Fatalf("ERROR: PC out of range: %X", c.PC)
-	// }
 	op = c.memory[c.PC]
 
 	switch op {
