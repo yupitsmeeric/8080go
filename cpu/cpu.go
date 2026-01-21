@@ -40,8 +40,6 @@ type CPU struct {
 	interrupt                           bool
 	Cycles                              int
 
-	advance bool
-
 	/*
 		spinCounter uint8 // number of cycles to spin
 	*/
@@ -84,7 +82,6 @@ func New(memory []uint8) *CPU {
 		carry:     false,
 		interrupt: false,
 		portMap:   make(map[uint8]uint8),
-		advance: true,
 	}
 }
 
@@ -92,7 +89,6 @@ func New(memory []uint8) *CPU {
 func (c *CPU) Run() {
 	// run 1 cycle
 	c.Cycles += 1
-	c.advance = true
 	var op uint8
 
 	op = c.memory[c.PC]
@@ -646,9 +642,8 @@ func (c *CPU) Run() {
 	default:
 		c.unimplementedInstruction()
 	}
-	if c.advance {
-		c.PC += 1 // default increase pc by 1. for other longer instructions see individual instructions
-	}
+	c.PC += 1 // default increase pc by 1. for other longer instructions see individual instructions
+
 }
 
 func (c *CPU) RunCycles(cycles int) {
@@ -823,16 +818,14 @@ func (c *CPU) cmpA(val uint8) {
 // all jmp functions modify the pc for you
 func (c *CPU) jmp(adr uint16) {
 	c.PC = adr
-	c.advance = false
 }
 
 func (c *CPU) condJmp(cond bool) {
 	if cond {
 		adr := c.nextWord()
 		c.PC = adr
-		c.advance = false
 	} else {
-		c.PC += 2
+		c.PC += 3
 	}
 }
 
@@ -846,13 +839,12 @@ func (c *CPU) condCall(cond bool) {
 		adr := c.nextWord()
 		c.call(adr)
 	} else {
-		c.PC += 2
+		c.PC += 3
 	}
 }
 
 func (c *CPU) ret() {
 	c.PC = c.popStack()
-	c.advance = false
 }
 
 func (c *CPU) condRet(cond bool) {
