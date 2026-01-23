@@ -54,27 +54,44 @@ func (g *Game) genImage() {
 	The screens pixels are on/off (1 bit each). 256*224/8 = 7168 (7K) bytes.
 			2400-3FFF 7K Video RAM
 	*/
-	vram := g.c.GetMemory()[0x2400:0x3FFF]
+	vram := g.c.GetMemory()[0x2400:0x4000]
 	// g.gameImage
-	// TODO Modify this so that for each byte, loop 8 times, then update the 
+	// TODO Modify this so that for each byte, loop 8 times, then update the
 	// x and y coordinates accordingly, using some modulo
-	bitIndex := 0
-	for y := 0; y < gameHeight; y++ {
-		for x := 0; x < gameWidth; x++ {
-			if bitIndex < (0x1c00 -1 )*8{ // check in bounds
-				byteIndex := bitIndex / 8
-				bitPosition := bitIndex % 8
-				bit := (vram[byteIndex] >> (7 - bitPosition)) & 1
+	for i, b := range vram {
+		for k := 0; k < 8; k++ {
+			index := i*8 + k
+			xPos := index % gameWidth
+			yPos := index / gameWidth
+			bit := (b >> k) & 0x01
 
-				if bit == 1 {
-					g.gameImage.SetGray(x, y, color.Gray{Y: 255})
-				} else {
-					g.gameImage.SetGray(x, y, color.Gray{Y: 25})
-				}
-			bitIndex++
+			if bit != 0 {
+				g.gameImage.SetGray(xPos, yPos, color.Gray{Y: 255})
+			} else {
+				g.gameImage.SetGray(xPos, yPos, color.Gray{Y: 25})
 			}
+
 		}
 	}
+	/*
+		bitIndex := 0
+		for y := 0; y < gameHeight; y++ {
+			for x := 0; x < gameWidth; x++ {
+				if bitIndex < (0x1c00)*8 { // check in bounds
+					byteIndex := bitIndex / 8
+					bitPosition := bitIndex % 8
+					bit := (vram[byteIndex] >> (7 - bitPosition)) & 1
+
+					if bit == 1 {
+						g.gameImage.SetGray(x, y, color.Gray{Y: 255})
+					} else {
+						g.gameImage.SetGray(x, y, color.Gray{Y: 25})
+					}
+					bitIndex++
+				}
+			}
+		}
+	*/
 }
 
 func (g *Game) Update() error {
@@ -91,6 +108,7 @@ func (g *Game) Update() error {
 
 	_, err := g.debugUI.Update(func(ctx *debugui.Context) error {
 		g.cpuWindow(ctx)
+		g.logWindow(ctx)
 		return nil
 	})
 	if err != nil {

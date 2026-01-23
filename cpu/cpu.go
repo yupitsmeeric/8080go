@@ -3,6 +3,7 @@ package cpu
 import (
 	// "fmt"
 	// "log"
+	"fmt"
 	"math/bits"
 )
 
@@ -39,6 +40,10 @@ type CPU struct {
 	sign, zero, auxCarry, parity, carry bool
 	interrupt                           bool
 	Cycles                              int
+
+	// Debug stuff
+	Log        string
+	LogUpdated bool
 
 	/*
 		spinCounter uint8 // number of cycles to spin
@@ -82,6 +87,9 @@ func New(memory []uint8) *CPU {
 		carry:     false,
 		interrupt: false,
 		portMap:   make(map[uint8]uint8),
+
+		Log:        "",
+		LogUpdated: false,
 	}
 }
 
@@ -92,6 +100,7 @@ func (c *CPU) Run() {
 	var op uint8
 
 	op = c.memory[c.PC]
+	c.PC += 1
 
 	switch op {
 	case 0x7F: //c.A = c.A // MOV A,A
@@ -542,8 +551,31 @@ func (c *CPU) Run() {
 	case 0xE9:
 		c.PC = c.getHL() // PCHL
 	case 0xCD:
-		c.call(c.nextWord()) // CALL
+		adr := c.nextWord()
+		// TODO FOR DEBUG PURPOSES
+		if adr == 0x68b { // CPUER called
+			c.Log += fmt.Sprintf("CPUER called from loc: %X, op: %X\n", c.PC-3, c.memory[c.PC-3 : c.PC])
+		}
+		if adr == 0x05 {
+			switch c.C {
+			case 9:
+				strAdr := c.getDE() + 3
+				for c.memory[strAdr] != 0 {
+					c.Log += fmt.Sprintf("%c", c.memory[strAdr])
+					strAdr += 1
+				}
+				c.Log += "\n"
+				
 
+			case 2:
+				c.Log += "print char routine called\n"
+			default:
+			}
+			c.LogUpdated = true
+
+		} else {
+			c.call(adr) // CALL
+		}
 	case 0xC4:
 		c.condCall(!c.zero) // CNZ
 	case 0xCC:
@@ -642,7 +674,7 @@ func (c *CPU) Run() {
 	default:
 		c.unimplementedInstruction()
 	}
-	c.PC += 1 // default increase pc by 1. for other longer instructions see individual instructions
+	// c.PC += 1 // default increase pc by 1. for other longer instructions see individual instructions
 
 }
 
@@ -703,14 +735,16 @@ func (c *CPU) writeWord(adr uint16, val uint16) {
 }
 
 // read the byte/word AFTER the opcode
-func (c *CPU) nextByte() uint8 {
+func (c *CPU) nextByte() (res uint8) {
+	res = c.readByte(c.PC)
 	c.PC += 1
-	return c.readByte(c.PC)
+	return
 
 }
-func (c *CPU) nextWord() uint16 {
+func (c *CPU) nextWord() (res uint16) {
+	res = c.readWord(c.PC)
 	c.PC += 2
-	return c.readWord(c.PC - 1)
+	return
 }
 
 func (c *CPU) setBC(val uint16) {
@@ -810,8 +844,9 @@ func (c *CPU) orA(val uint8) {
 
 func (c *CPU) cmpA(val uint8) {
 	res := uint16(c.A) - uint16(val)
-	c.carry = (res >> 8) != 0
-	c.auxCarry = (^(uint16(c.A) ^ res ^ uint16(val)) & 0x10) != 0
+	c.carry = c.A < val
+	// c.carry = (res >> 8) != 0
+	// c.auxCarry = (^(uint16(c.A) ^ res ^ uint16(val)) & 0x10) != 0
 	c.setZSP(uint8(res & 0xFF))
 }
 
@@ -821,12 +856,12 @@ func (c *CPU) jmp(adr uint16) {
 }
 
 func (c *CPU) condJmp(cond bool) {
+	adr := c.nextWord()
 	if cond {
-		adr := c.nextWord()
 		c.PC = adr
-	} else {
-		c.PC += 3
-	}
+	} //else {
+	// c.PC += 3
+	// }
 }
 
 func (c *CPU) call(adr uint16) {
@@ -835,12 +870,12 @@ func (c *CPU) call(adr uint16) {
 }
 
 func (c *CPU) condCall(cond bool) {
+	adr := c.nextWord()
 	if cond {
-		adr := c.nextWord()
 		c.call(adr)
-	} else {
-		c.PC += 3
-	}
+	} //else {
+	// c.PC += 3
+	// }
 }
 
 func (c *CPU) ret() {
@@ -850,12 +885,12 @@ func (c *CPU) ret() {
 func (c *CPU) condRet(cond bool) {
 	if cond {
 		c.ret()
-	} else {
-		// not too sure about this, make sure that the opcodes using this
-		// deal with the pc in case of fail or smth
-		// or make it consistent at least
-		c.PC += 1
-	}
+	} //else {
+	// not too sure about this, make sure that the opcodes using this
+	// deal with the pc in case of fail or smth
+	// or make it consistent at least
+	// c.PC += 1
+	// }
 }
 
 // Push A | flags onto the stack

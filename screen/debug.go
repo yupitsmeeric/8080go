@@ -1,9 +1,10 @@
 package screen
 
-
 import (
 	"fmt"
 	"image"
+	"math/bits"
+
 	// "image/color"
 	"github.com/ebitengine/debugui"
 	// "github.com/hajimehoshi/ebiten/v2"
@@ -11,17 +12,28 @@ import (
 	// "github.com/hajimehoshi/ebiten/v2/vector"
 )
 
+func (g *Game) getPixelCounts() int {
+	vram := g.c.GetMemory()[0x2400:0x4000]
+	counts := 0
+	for b := range vram {
+		counts += bits.OnesCount(uint(b))
+	}
+
+	return counts
+}
+
 func (g *Game) cpuWindow(ctx *debugui.Context) {
 	ctx.Window("CPU State", image.Rect(40, 40, 600, 470), func(layout debugui.ContainerLayout) {
 		ctx.SetGridLayout(nil, []int{25, -1})
 		ctx.GridCell(func(bounds image.Rectangle) {
 			// TODO buttons
 			ctx.SetGridLayout([]int{50, 50, 50, 150, -1}, nil)
-			ctx.Button("Run 1").On(func() {g.c.Run()})
-			ctx.Button("Run").On(func() {g.running = true})
-			ctx.Button("Pause").On(func() {g.running = false})
+			ctx.Button("Run 1").On(func() { g.c.Run() })
+			ctx.Button("Run").On(func() { g.running = true })
+			ctx.Button("Pause").On(func() { g.running = false })
+
 			ctx.Text(fmt.Sprintf("Running: %t", g.running))
-			ctx.Text(fmt.Sprintf("Cycle # %v", g.c.Cycles))
+			ctx.Text(fmt.Sprintf("OnPixels: %v, Cycle # %v", g.getPixelCounts(), g.c.Cycles))
 		})
 		ctx.GridCell(func(bounds image.Rectangle) {
 			ctx.SetGridLayout([]int{100, -1}, nil)
@@ -36,7 +48,7 @@ func (g *Game) cpuWindow(ctx *debugui.Context) {
 					ctx.Text("AC")
 					ctx.Text("P")
 					ctx.Text("C")
-					
+
 					flags := g.c.GetFlags()
 					oneZero := map[bool]int{true: 1, false: 0}
 					ctx.Text(fmt.Sprintf("%d", oneZero[flags[0]]))
@@ -71,15 +83,29 @@ func (g *Game) cpuWindow(ctx *debugui.Context) {
 				memStart := int(pc & 0xfff0)
 				ctx.SetGridLayout([]int{-2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}, nil)
 				ctx.Text("")
-				ctx.Loop(16, func(i int) {ctx.Text(fmt.Sprintf("%X", i))})
+				ctx.Loop(16, func(i int) { ctx.Text(fmt.Sprintf("%X", i)) })
 				ctx.Loop(16, func(i int) {
 					// memory headers
-					ctx.Text(fmt.Sprintf("0x%04X", i*0x10 + memStart))
+					ctx.Text(fmt.Sprintf("0x%04X", i*0x10+memStart))
 					ctx.Loop(16, func(j int) {
-						ctx.Text(fmt.Sprintf("%02X", memory[memStart + i*0x10 + j]))
+						ctx.Text(fmt.Sprintf("%02X", memory[memStart+i*0x10+j]))
 					})
 				})
 			})
 		})
 	})
+}
+
+func (g *Game) logWindow(ctx *debugui.Context) {
+
+	ctx.Window("Log Window", image.Rect(350, 600, 650, 490), func(layout debugui.ContainerLayout) {
+		ctx.SetGridLayout([]int{-1}, []int{-1, 0})
+		ctx.Text(g.c.Log)
+		if g.c.LogUpdated {
+			ctx.SetScroll(image.Pt(layout.ScrollOffset.X, layout.ContentSize.Y))
+			g.c.LogUpdated = false
+		}
+
+	})
+
 }
