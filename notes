@@ -1,0 +1,10 @@
+ok made debugging with history
+
+and i discovered why it wasnt detecting the cpuer calls
+because it was using cond calls
+so i should be modifying the call function itself to detect the 
+stuff
+
+but not sure if that will affect the PC advance
+
+actually just add a breakpoint detector 

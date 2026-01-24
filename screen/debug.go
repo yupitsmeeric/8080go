@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math/bits"
+	"strconv"
 
 	// "image/color"
 	"github.com/ebitengine/debugui"
@@ -23,18 +24,35 @@ func (g *Game) getPixelCounts() int {
 }
 
 func (g *Game) cpuWindow(ctx *debugui.Context) {
-	ctx.Window("CPU State", image.Rect(40, 40, 600, 470), func(layout debugui.ContainerLayout) {
-		ctx.SetGridLayout(nil, []int{25, -1})
+	ctx.Window("CPU State", image.Rect(40, 40, 600, 525), func(layout debugui.ContainerLayout) {
+		ctx.SetGridLayout(nil, []int{25,25, -1})
 		ctx.GridCell(func(bounds image.Rectangle) {
 			// TODO buttons
 			ctx.SetGridLayout([]int{50, 50, 50, 150, -1}, nil)
 			ctx.Button("Run 1").On(func() { g.c.Run() })
-			ctx.Button("Run").On(func() { g.running = true })
-			ctx.Button("Pause").On(func() { g.running = false })
+			ctx.Button("Run").On(func() { g.c.Running = true })
+			ctx.Button("Pause").On(func() { g.c.Running = false })
 
-			ctx.Text(fmt.Sprintf("Running: %t", g.running))
+			ctx.Text(fmt.Sprintf("Running: %t", g.c.Running))
 			ctx.Text(fmt.Sprintf("OnPixels: %v, Cycle # %v", g.getPixelCounts(), g.c.Cycles))
 		})
+
+		// breakpoint
+		ctx.GridCell(func(bounds image.Rectangle) {
+			ctx.SetGridLayout([]int{100, 50,  -1}, nil)
+			ctx.Text("Breakpoint: ")
+			ctx.TextField(&g.breakpoint).On(func(){
+				breakpointNumber, err := strconv.ParseInt(g.breakpoint, 16, 0)
+				if err != nil {
+					g.c.Breakpoint = 0xFFFF
+				} else {
+					g.c.Breakpoint = uint16(breakpointNumber)
+				}
+			})
+			ctx.Text(fmt.Sprintf("set to: 0x%04X", g.c.Breakpoint))
+		})
+		
+		// flags/hex table
 		ctx.GridCell(func(bounds image.Rectangle) {
 			ctx.SetGridLayout([]int{100, -1}, nil)
 			ctx.GridCell(func(bounds image.Rectangle) {

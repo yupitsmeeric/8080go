@@ -42,8 +42,12 @@ type CPU struct {
 	Cycles                              int
 
 	// Debug stuff
-	Log        string
-	LogUpdated bool
+	Log         string
+	LogUpdated  bool
+	Running     bool
+	history     []uint16
+	histCounter int
+	Breakpoint  uint16
 
 	/*
 		spinCounter uint8 // number of cycles to spin
@@ -88,8 +92,12 @@ func New(memory []uint8) *CPU {
 		interrupt: false,
 		portMap:   make(map[uint8]uint8),
 
-		Log:        "",
-		LogUpdated: false,
+		Log:         "",
+		LogUpdated:  false,
+		Running:     false,
+		history:     make([]uint16, 10000),
+		histCounter: 0,
+		Breakpoint:  0xFFFF,
 	}
 }
 
@@ -97,8 +105,18 @@ func New(memory []uint8) *CPU {
 func (c *CPU) Run() {
 	// run 1 cycle
 	c.Cycles += 1
-	var op uint8
 
+	// update PC history
+	c.history[c.histCounter] = c.PC
+	c.histCounter += 1
+	// check if the counter is too big
+	// then reset it
+	if c.histCounter >= 9000 {
+		copy(c.history[:15], c.history[c.histCounter-15:c.histCounter])
+		c.histCounter = 15
+	}
+
+	var op uint8
 	op = c.memory[c.PC]
 	c.PC += 1
 
@@ -553,26 +571,36 @@ func (c *CPU) Run() {
 	case 0xCD:
 		adr := c.nextWord()
 		// TODO FOR DEBUG PURPOSES
-		if adr == 0x68b { // CPUER called
-			c.Log += fmt.Sprintf("CPUER called from loc: %X, op: %X\n", c.PC-3, c.memory[c.PC-3 : c.PC])
-		}
+
 		if adr == 0x05 {
+			c.Running = false // debug stop running
 			switch c.C {
 			case 9:
+				c.Log += "history: "
+				for _, val := range c.history[c.histCounter-15 : c.histCounter] {
+					c.Log += fmt.Sprintf("0x%02X ", val)
+				}
+				c.Log += "\n"
+
 				strAdr := c.getDE() + 3
 				for c.memory[strAdr] != 0 {
 					c.Log += fmt.Sprintf("%c", c.memory[strAdr])
 					strAdr += 1
 				}
 				c.Log += "\n"
-				
 
 			case 2:
 				c.Log += "print char routine called\n"
 			default:
 			}
+
 			c.LogUpdated = true
 
+		} else if adr == 0x068B {
+			// CPUER function called
+			c.Log += fmt.Sprintf("CPUER called from loc: %X, op: %X\n", c.PC-3, c.memory[c.PC-3:c.PC])
+
+			c.call(adr) // CALL
 		} else {
 			c.call(adr) // CALL
 		}
@@ -680,7 +708,11 @@ func (c *CPU) Run() {
 
 func (c *CPU) RunCycles(cycles int) {
 	for range cycles {
-		c.Run()
+		if c.Running && !(c.PC == c.Breakpoint) {
+			c.Run()
+		} else {
+			break
+		}
 	}
 }
 
@@ -792,7 +824,14 @@ func (c *CPU) add(a, b uint8, carry bool) (res uint8) {
 }
 
 func (c *CPU) sub(a, b uint8, carry bool) (res uint8) {
-	return c.add(a, (0xFF ^ b), !carry)
+	res = c.add(a, (0xFF ^ b), !carry)
+	if carry {
+		c.carry = b+1 > a
+	} else {
+		c.carry = b > a
+	}
+
+	return
 }
 
 func (c *CPU) dad(val uint16) { // add word to HL
@@ -865,6 +904,51 @@ func (c *CPU) condJmp(cond bool) {
 }
 
 func (c *CPU) call(adr uint16) {
+	// switch adr {
+	// 	case 0x0005:
+	// 		// Printing function
+	// 		switch c.C{
+	// 		case 9:
+	// 		case 2:
+	// 		}
+	// 	case 0x068B:
+	// 		// CPUER
+	//
+	// }
+	//
+		// if adr == 0x05 {
+		// 	c.Running = false // debug stop running
+		// 	switch c.C {
+		// 	case 9:
+		// 		c.Log += "history: "
+		// 		for _, val := range c.history[c.histCounter-15 : c.histCounter] {
+		// 			c.Log += fmt.Sprintf("0x%02X ", val)
+		// 		}
+		// 		c.Log += "\n"
+		//
+		// 		strAdr := c.getDE() + 3
+		// 		for c.memory[strAdr] != 0 {
+		// 			c.Log += fmt.Sprintf("%c", c.memory[strAdr])
+		// 			strAdr += 1
+		// 		}
+		// 		c.Log += "\n"
+		//
+		// 	case 2:
+		// 		c.Log += "print char routine called\n"
+		// 	default:
+		// 	}
+		//
+		// 	c.LogUpdated = true
+		//
+		// } else if adr == 0x068B {
+		// 	// CPUER function called
+		// 	c.Log += fmt.Sprintf("CPUER called from loc: %X, op: %X\n", c.PC-3, c.memory[c.PC-3:c.PC])
+		//
+		// 	c.call(adr) // CALL
+		// } else {
+		// 	c.call(adr) // CALL
+		// }
+
 	c.pushStack(c.PC)
 	c.jmp(adr)
 }

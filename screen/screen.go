@@ -25,7 +25,8 @@ type Game struct {
 	screenHeight int
 	gameImage    image.Gray
 	c            *cpu.CPU
-	running      bool
+	breakpoint   string
+	// running      bool
 
 	debugUI debugui.DebugUI
 }
@@ -41,8 +42,8 @@ func NewGame(c *cpu.CPU) *Game {
 	return &Game{screenWidth: ScreenWidth,
 		screenHeight: ScreenHeight,
 		c:            c,
-		running:      false,
-		gameImage:    *image.NewGray(image.Rect(0, 0, gameWidth, gameHeight)),
+		// running:      false,
+		gameImage: *image.NewGray(image.Rect(0, 0, gameWidth, gameHeight)),
 	}
 }
 
@@ -97,7 +98,7 @@ func (g *Game) genImage() {
 func (g *Game) Update() error {
 	// update cpu cycles
 	// draw debug screen
-	if g.running {
+	if g.c.Running {
 		// if running, run for 1/60 s cycles
 		// for 2.1 MHz, 1/60 s is 35,000 cycles
 		g.c.RunCycles(35000)
