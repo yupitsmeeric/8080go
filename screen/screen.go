@@ -1,18 +1,11 @@
 package screen
 
 import (
-	// "bytes"
-	// _ "embed"
 	"emulator8080/cpu"
 	"fmt"
 	"image"
-	// "math"
-	// "image"
+	"math"
 	"image/color"
-	// _ "image/jpeg"
-	// "math/rand/v2"
-	// "os"
-	// "strings"
 
 	"github.com/ebitengine/debugui"
 	// "github.com/hajimehoshi/ebiten"
@@ -26,6 +19,7 @@ type Game struct {
 	gameImage    image.Gray
 	c            *cpu.CPU
 	breakpoint   string
+	memoryAdr    string
 	// running      bool
 
 	debugUI debugui.DebugUI
@@ -96,12 +90,42 @@ func (g *Game) genImage() {
 }
 
 func (g *Game) Update() error {
+	// update player input
+	if ebiten.IsKeyPressed(ebiten.KeyArrowDown){
+		// insert credit
+		g.c.Ports[1] |= 0b1
+	} else {
+		g.c.Ports[1] &= ^uint8(0b1)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft){
+		// move left
+		g.c.Ports[1] |= 0b00100000
+	} else {
+		g.c.Ports[1] &= ^uint8(0b00100000)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowRight){
+		// move right
+		g.c.Ports[1] |= 0b01000000
+	} else {
+		g.c.Ports[1] &= ^uint8(0b01000000)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowUp){
+		// shoot & 1P start
+		g.c.Ports[1] |= 0b00010100
+	} else {
+		g.c.Ports[1] &= ^uint8(0b00010100)
+	}
+	
 	// update cpu cycles
 	// draw debug screen
 	if g.c.Running {
 		// if running, run for 1/60 s cycles
 		// for 2.1 MHz, 1/60 s is 35,000 cycles
-		g.c.RunCycles(35000)
+		g.c.RunCycles(17500)
+		// half screen interrupt
+		g.c.CallRST(0x0008)
+		g.c.RunCycles(17500)
+		g.c.CallRST(0x0010)
 	}
 
 	// update the screen
@@ -121,9 +145,9 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	// draw the gameImage
 	op := &ebiten.DrawImageOptions{}
-	// op.GeoM.Rotate(math.Pi* 3/2)
-	// op.GeoM.Scale(2, 2)
-	// op.GeoM.Translate(100, 400)
+	op.GeoM.Scale(2, 1.5)
+	op.GeoM.Rotate(math.Pi* 3/2)
+	op.GeoM.Translate(100,480)
 
 	screen.DrawImage(ebiten.NewImageFromImage(&g.gameImage), op)
 

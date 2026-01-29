@@ -95,7 +95,7 @@ func (g *Game) cpuWindow(ctx *debugui.Context) {
 				})
 			})
 			ctx.GridCell(func(bounds image.Rectangle) {
-				// TODO Hex table
+				//Hex table
 				memory := g.c.GetMemory()
 				pc := g.c.PC
 				memStart := int(pc & 0xfff0)
@@ -109,6 +109,20 @@ func (g *Game) cpuWindow(ctx *debugui.Context) {
 						ctx.Text(fmt.Sprintf("%02X", memory[memStart+i*0x10+j]))
 					})
 				})
+				// one more row for manual memory
+				ctx.TextField(&g.memoryAdr).On(func() {})
+				adr, err := strconv.ParseInt(g.memoryAdr, 16, 0)
+				if err == nil {
+					adrStart := int(adr & 0xFFF0)
+					ctx.Loop(16, func(i int) {
+						ctx.Text(fmt.Sprintf("%02X", memory[adrStart+i]))
+					})
+				} else {
+					ctx.Loop(16, func(i int) {
+						ctx.Text(fmt.Sprint("XX"))
+					})
+				}
+
 			})
 		})
 	})

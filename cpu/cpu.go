@@ -3,7 +3,7 @@ package cpu
 import (
 	// "fmt"
 	// "log"
-	"fmt"
+	// "fmt"
 	"math/bits"
 )
 
@@ -33,13 +33,19 @@ type CPU struct {
 	A, B, C, D, E, H, L uint8
 	PSW                 uint8
 	SP, PC              uint16
-	portMap             map[uint8]uint8
+	Ports               [8]uint8
+	shiftReg            uint16
+	offset              uint8
+	// inPorts             [4]uint8
+	// outPorts						[7]uint8
+	// portMap             map[uint8]uint8
 
 	// Flags               uint8
 	/*FLAGS*/
 	sign, zero, auxCarry, parity, carry bool
-	interrupt                           bool
 	Cycles                              int
+	interrupt                           bool
+	// interruptVector                     uint16
 
 	// Debug stuff
 	Log         string
@@ -90,7 +96,49 @@ func New(memory []uint8) *CPU {
 		parity:    false,
 		carry:     false,
 		interrupt: false,
-		portMap:   make(map[uint8]uint8),
+		/*
+			Port 0
+			 bit 0 DIP4 (Seems to be self-test-request read at power up)
+			 bit 1 Always 1
+			 bit 2 Always 1
+			 bit 3 Always 1
+			 bit 4 Fire
+			 bit 5 Left
+			 bit 6 Right
+			 bit 7 ? tied to demux port 7 ?
+
+			Port 1
+			 bit 0 = CREDIT (1 if deposit)
+			 bit 1 = 2P start (1 if pressed)
+			 bit 2 = 1P start (1 if pressed)
+			 bit 3 = Always 1
+			 bit 4 = 1P shot (1 if pressed)
+			 bit 5 = 1P left (1 if pressed)
+			 bit 6 = 1P right (1 if pressed)
+			 bit 7 = Not connected
+
+			Port 2
+			 bit 0 = DIP3 00 = 3 ships  10 = 5 ships
+			 bit 1 = DIP5 01 = 4 ships  11 = 6 ships
+			 bit 2 = Tilt
+			 bit 3 = DIP6 0 = extra ship at 1500, 1 = extra ship at 1000
+			 bit 4 = P2 shot (1 if pressed)
+			 bit 5 = P2 left (1 if pressed)
+			 bit 6 = P2 right (1 if pressed)
+			 bit 7 = DIP7 Coin info displayed in demo screen 0=ON
+
+			Port 3
+			  bit 0-7 Shift register data
+		*/
+		// inPorts: [4]uint8{
+		// 	0b01110000,
+		// 	0b00010000,
+		// 	0b00000001,
+		// 	0,
+		// },
+		// outPorts: [7]uint8{0, 0, 0, 0, 0, 0, 0},
+		Ports: [8]uint8{0, 0, 0b11, 0, 0, 0, 0, 0},
+		// portMap:   make(map[uint8]uint8),
 
 		Log:         "",
 		LogUpdated:  false,
@@ -99,6 +147,18 @@ func New(memory []uint8) *CPU {
 		histCounter: 0,
 		Breakpoint:  0xFFFF,
 	}
+}
+
+/*
+INTERRUPT HANDLING
+*/
+func (c *CPU) CallRST(vector uint16) {
+	// TODO rewrite this to make the interrupts stay if needed,
+	// or however else to manage the interrupt enable/disable
+	if !c.interrupt {
+		return
+	}
+	c.call(vector)
 }
 
 /****  MAIN RUN FUNCTION  ****/
@@ -394,9 +454,10 @@ func (c *CPU) Run() {
 
 		// TODO interrupts
 	case 0xF3:
-		c.unimplementedInstruction() // DI - disable interrupts
+		c.interrupt = false // DI - disable interrupts
 	case 0xFB:
-		c.unimplementedInstruction() // EI - enable interrupts
+		c.interrupt = true // EI - enable interrupts
+		// TODO get a hold of the timing stuff
 	case 0x00: // NOP
 	case 0x76:
 		c.unimplementedInstruction() //HLT
@@ -569,41 +630,8 @@ func (c *CPU) Run() {
 	case 0xE9:
 		c.PC = c.getHL() // PCHL
 	case 0xCD:
-		adr := c.nextWord()
-		// TODO FOR DEBUG PURPOSES
+		c.call(c.nextWord())
 
-		if adr == 0x05 {
-			c.Running = false // debug stop running
-			switch c.C {
-			case 9:
-				c.Log += "history: "
-				for _, val := range c.history[c.histCounter-15 : c.histCounter] {
-					c.Log += fmt.Sprintf("0x%02X ", val)
-				}
-				c.Log += "\n"
-
-				strAdr := c.getDE() + 3
-				for c.memory[strAdr] != 0 {
-					c.Log += fmt.Sprintf("%c", c.memory[strAdr])
-					strAdr += 1
-				}
-				c.Log += "\n"
-
-			case 2:
-				c.Log += "print char routine called\n"
-			default:
-			}
-
-			c.LogUpdated = true
-
-		} else if adr == 0x068B {
-			// CPUER function called
-			c.Log += fmt.Sprintf("CPUER called from loc: %X, op: %X\n", c.PC-3, c.memory[c.PC-3:c.PC])
-
-			c.call(adr) // CALL
-		} else {
-			c.call(adr) // CALL
-		}
 	case 0xC4:
 		c.condCall(!c.zero) // CNZ
 	case 0xCC:
@@ -674,10 +702,33 @@ func (c *CPU) Run() {
 	case 0xF1:
 		c.popPSW() // POP PSW
 
-	case 0xDB:
-		c.unimplementedInstruction() // IN
-	case 0xD3:
-		c.unimplementedInstruction() // OUT
+		// case 0xDB: c->a = c->port_in(c->userdata, i8080_next_byte(c)); break; // IN
+		// case 0xD3: c->port_out(c->userdata, i8080_next_byte(c), c->a); break; // OUT
+
+	case 0xDB: // IN
+		// c.A = c.inPorts[c.nextByte()]
+		portNo := c.nextByte()
+		switch portNo {
+		case 3:
+			c.A = uint8(c.shiftReg >> (8 - c.offset)) // write to the correct port
+		default:
+			c.A = c.Ports[portNo]
+
+		}
+	case 0xD3: // OUT
+		portNo := c.nextByte()
+		// c.ports[portNo] = c.A
+		// might be kind of redundant for the shift regs
+		// since theyre being handled manually but just keep it
+		switch portNo {
+		case 4:
+			c.shiftReg = (uint16(c.A) << 8) | (c.shiftReg >> 8)
+		case 2:
+			// set the offset for the 8 bit result returned from the shift register
+			c.offset = c.A & 0b111
+		}
+
+		// c.unimplementedInstruction() // OUT
 
 	case 0x08:
 	case 0x10:
@@ -711,6 +762,7 @@ func (c *CPU) RunCycles(cycles int) {
 		if c.Running && !(c.PC == c.Breakpoint) {
 			c.Run()
 		} else {
+			c.Running = false // debug stop running
 			break
 		}
 	}
@@ -904,53 +956,41 @@ func (c *CPU) condJmp(cond bool) {
 }
 
 func (c *CPU) call(adr uint16) {
-	// switch adr {
-	// 	case 0x0005:
-	// 		// Printing function
-	// 		switch c.C{
-	// 		case 9:
-	// 		case 2:
-	// 		}
-	// 	case 0x068B:
-	// 		// CPUER
-	//
-	// }
-	//
-		// if adr == 0x05 {
-		// 	c.Running = false // debug stop running
-		// 	switch c.C {
-		// 	case 9:
-		// 		c.Log += "history: "
-		// 		for _, val := range c.history[c.histCounter-15 : c.histCounter] {
-		// 			c.Log += fmt.Sprintf("0x%02X ", val)
-		// 		}
-		// 		c.Log += "\n"
-		//
-		// 		strAdr := c.getDE() + 3
-		// 		for c.memory[strAdr] != 0 {
-		// 			c.Log += fmt.Sprintf("%c", c.memory[strAdr])
-		// 			strAdr += 1
-		// 		}
-		// 		c.Log += "\n"
-		//
-		// 	case 2:
-		// 		c.Log += "print char routine called\n"
-		// 	default:
-		// 	}
-		//
-		// 	c.LogUpdated = true
-		//
-		// } else if adr == 0x068B {
-		// 	// CPUER function called
-		// 	c.Log += fmt.Sprintf("CPUER called from loc: %X, op: %X\n", c.PC-3, c.memory[c.PC-3:c.PC])
-		//
-		// 	c.call(adr) // CALL
-		// } else {
-		// 	c.call(adr) // CALL
-		// }
+	switch adr {
+	/* FOR TEST ROM
+	case 0x0005:
+		// Printing function
+		c.Running = false // debug stop running
+		c.LogUpdated = true
+		switch c.C {
+		case 9:
+			c.Log += "history: "
+			for _, val := range c.history[c.histCounter-15 : c.histCounter] {
+				c.Log += fmt.Sprintf("0x%02X ", val)
+			}
+			c.Log += "\n"
 
-	c.pushStack(c.PC)
-	c.jmp(adr)
+			strAdr := c.getDE() + 3
+			for c.memory[strAdr] != 0 {
+				c.Log += fmt.Sprintf("%c", c.memory[strAdr])
+				strAdr += 1
+			}
+			c.Log += "\n"
+
+		case 2:
+			c.Log += "print char routine called\n"
+		}
+	case 0x068B:
+		// CPUER
+		c.LogUpdated = true
+		c.Log += fmt.Sprintf("CPUER called from loc: %X, op: %X\n", c.PC-3, c.memory[c.PC-3:c.PC])
+		c.pushStack(c.PC)
+		c.jmp(adr)
+	*/
+	default:
+		c.pushStack(c.PC)
+		c.jmp(adr)
+	}
 }
 
 func (c *CPU) condCall(cond bool) {
@@ -1077,9 +1117,9 @@ func (c *CPU) setZSP(val uint8) {
 }
 func (c *CPU) unimplementedInstruction() {}
 
-func (c *CPU) redirectPort(data, port uint8) {
-	c.portMap[port] = data
-}
+// func (c *CPU) redirectPort(data, port uint8) {
+// c.portMap[port] = data
+// }
 
 // TODO: make flag helper functions
 // func (c *CPU) stateFlagsA() {}
