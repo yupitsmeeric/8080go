@@ -1,6 +1,10 @@
 QUICK RESTART:
 How to compile:
 run `go build`
+`./emulator8080`
+
+![My screenshot](screenshots/img1.png)
+
 
 NOTES:
 clock speed is 2MHz, delay is 5e-7s = 5e-4ms
